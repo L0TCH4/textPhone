@@ -47,14 +47,22 @@ footer {
 input, button {
   font-size: 16px;
 }
-#nameInput, #peerInput {
+input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+button {
   width: 100%;
   margin-bottom: 6px;
 }
 #textInput {
-  width: 100%;
   font-size: 20px;
   padding: 8px;
+}
+#shareUrl {
+  font-size: 12px;
+  opacity: 0.8;
+  word-break: break-all;
 }
 </style>
 </head>
@@ -70,7 +78,11 @@ input, button {
 <footer>
   <input id="nameInput" placeholder="あなたの名前">
   <input id="peerInput" placeholder="相手のPeer ID">
-  <button onclick="connect()">接続</button>
+  <button onclick="connect()">Peer IDで接続</button>
+
+  <button onclick="copyShareUrl()">共有URLをコピー</button>
+  <div id="shareUrl"></div>
+
   <input id="textInput" placeholder="話すように入力…" autocomplete="off">
 </footer>
 
@@ -82,15 +94,22 @@ const TTL = 3000;
 const remote = document.getElementById("remote");
 const localView = document.getElementById("localView");
 const textInput = document.getElementById("textInput");
+const shareUrlDiv = document.getElementById("shareUrl");
 
 let isComposing = false;
 let composingSpan = null;
+let shareUrl = "";
 
 peer.on("open", id => {
   document.getElementById("myId").textContent = id;
+
+  shareUrl = `${location.origin}${location.pathname}?connect=${id}`;
+  shareUrlDiv.textContent = shareUrl;
+
   const p = new URLSearchParams(location.search);
   if (p.get("connect")) {
     document.getElementById("peerInput").value = p.get("connect");
+    connect();
   }
 });
 
@@ -101,6 +120,7 @@ peer.on("connection", c => {
 
 function connect() {
   const id = document.getElementById("peerInput").value;
+  if (!id) return;
   conn = peer.connect(id);
   setupConn();
 }
@@ -119,6 +139,12 @@ function spawnChar(target, char) {
 
   setTimeout(() => span.classList.add("dead"), TTL);
   setTimeout(() => span.remove(), TTL + 500);
+}
+
+function copyShareUrl() {
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    alert("共有URLをコピーしました");
+  });
 }
 
 /* ===== IME対応 ===== */
@@ -144,24 +170,20 @@ textInput.addEventListener("compositionend", e => {
   const text = e.data;
   for (const char of text) {
     spawnChar(localView, char);
-    if (conn && conn.open) {
-      conn.send({ char });
-    }
+    if (conn && conn.open) conn.send({ char });
   }
   textInput.value = "";
 });
 
 textInput.addEventListener("input", e => {
-  if (isComposing) return; // IME中は無視
+  if (isComposing) return;
 
   const text = e.target.value;
   if (!text) return;
 
   for (const char of text) {
     spawnChar(localView, char);
-    if (conn && conn.open) {
-      conn.send({ char });
-    }
+    if (conn && conn.open) conn.send({ char });
   }
   e.target.value = "";
 });
