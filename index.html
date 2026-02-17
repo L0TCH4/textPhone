@@ -6,78 +6,136 @@
 <title>Text Phone</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
+:root {
+  --bg: #0e0e11;
+  --panel: #17171c;
+  --text: #ffffff;
+  --sub: #9a9aa3;
+  --accent: #4f7cff;
+}
+
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
-  background: #0f0f0f;
-  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
+
+/* ===== Header (Call Bar) ===== */
 header {
-  padding: 6px 10px;
-  background: #181818;
-  font-size: 12px;
+  height: 48px;
+  background: var(--panel);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 13px;
 }
+
+#callStatus {
+  text-align: center;
+  flex: 1;
+  font-weight: 600;
+}
+
+#callStatus span {
+  color: var(--sub);
+  font-weight: 400;
+  font-size: 12px;
+}
+
 #togglePanel {
-  font-size: 12px;
-  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: var(--sub);
+  font-size: 18px;
 }
+
+/* ===== Panel ===== */
 #panel {
-  background: #181818;
-  padding: 8px;
-  font-size: 12px;
   display: none;
-}
-#panel input, #panel button {
+  background: var(--panel);
+  padding: 10px;
   font-size: 12px;
-  padding: 4px;
-  margin-bottom: 6px;
-  width: 100%;
 }
+
+#panel input, #panel button {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+}
+
+#panel input {
+  background: #22222a;
+  color: var(--text);
+}
+
+#panel button {
+  background: var(--accent);
+  color: white;
+}
+
 #shareUrl {
   word-break: break-all;
-  opacity: 0.7;
+  color: var(--sub);
+  font-size: 11px;
 }
+
+/* ===== Text Areas ===== */
 #remote, #localView {
   flex: 1;
-  padding: 14px;
+  padding: 18px;
   font-size: 20px;
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-all;
 }
+
 #remote {
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #222;
 }
+
 .char {
-  opacity: 1;
   transition: opacity 0.4s;
 }
+
 .char.dead {
   opacity: 0;
 }
+
 #composing {
-  opacity: 0.6;
+  opacity: 0.5;
 }
+
+/* ===== Input ===== */
 footer {
-  padding: 6px;
-  background: #181818;
+  padding: 10px;
+  background: var(--panel);
 }
+
 #textInput {
   width: 100%;
   font-size: 20px;
-  padding: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #22222a;
+  color: var(--text);
 }
 </style>
 </head>
 <body>
 
 <header>
-  <div>Your ID: <span id="myId">...</span></div>
+  <div style="width:24px"></div>
+  <div id="callStatus">
+    Waiting…<br><span>not connected</span>
+  </div>
   <button id="togglePanel" onclick="togglePanel()">⚙</button>
 </header>
 
@@ -103,19 +161,19 @@ const remote = document.getElementById("remote");
 const localView = document.getElementById("localView");
 const textInput = document.getElementById("textInput");
 const shareUrlDiv = document.getElementById("shareUrl");
+const callStatus = document.getElementById("callStatus");
 const panel = document.getElementById("panel");
 
 let isComposing = false;
 let composingSpan = null;
 let shareUrl = "";
+let remoteName = "Unknown";
 
 function togglePanel() {
   panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
 peer.on("open", id => {
-  document.getElementById("myId").textContent = id;
-
   shareUrl = `${location.origin}${location.pathname}?connect=${id}`;
   shareUrlDiv.textContent = shareUrl;
 
@@ -133,7 +191,17 @@ peer.on("connection", c => {
 });
 
 function setupConn() {
+  conn.on("open", () => {
+    const myName = document.getElementById("nameInput").value || "匿名";
+    conn.send({ type: "hello", name: myName });
+  });
+
   conn.on("data", data => {
+    if (data.type === "hello") {
+      remoteName = data.name;
+      callStatus.innerHTML = `${remoteName}<br><span>connected</span>`;
+      return;
+    }
     spawnChar(remote, data.char);
   });
 }
@@ -172,26 +240,21 @@ textInput.addEventListener("compositionend", e => {
   if (composingSpan) composingSpan.remove();
   composingSpan = null;
 
-  const text = e.data;
+  sendText(e.data);
+});
+
+textInput.addEventListener("input", e => {
+  if (isComposing) return;
+  if (e.target.value) sendText(e.target.value);
+});
+
+function sendText(text) {
   for (const char of text) {
     spawnChar(localView, char);
     if (conn && conn.open) conn.send({ char });
   }
   textInput.value = "";
-});
-
-textInput.addEventListener("input", e => {
-  if (isComposing) return;
-
-  const text = e.target.value;
-  if (!text) return;
-
-  for (const char of text) {
-    spawnChar(localView, char);
-    if (conn && conn.open) conn.send({ char });
-  }
-  e.target.value = "";
-});
+}
 </script>
 
 </body>
