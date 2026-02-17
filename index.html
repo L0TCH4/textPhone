@@ -5,165 +5,96 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Text Phone</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-
 <style>
-:root {
-  --bg1: #0f2027;
-  --bg2: #203a43;
-  --bg3: #2c5364;
-  --glass: rgba(255,255,255,0.08);
-  --border: rgba(255,255,255,0.15);
-}
-
-* { box-sizing: border-box; }
-
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, var(--bg1), var(--bg3));
+  font-family: system-ui, sans-serif;
+  background: #0f0f0f;
   color: #fff;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
-
 header {
-  padding: 10px 14px;
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-#stage {
-  flex: 1;
-  position: relative;
-  padding: 20px;
-}
-
-.layer {
-  position: absolute;
-  inset: 0;
-  padding: 20px;
-  pointer-events: none;
-}
-
-#remote {
-  text-align: left;
-}
-
-#localView {
-  text-align: right;
-}
-
-.char {
-  display: inline-block;
-  margin: 2px;
   padding: 6px 10px;
-  border-radius: 14px;
-  background: var(--glass);
-  backdrop-filter: blur(8px);
-  animation: floatUp 3s linear forwards;
+  background: #181818;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-
-@keyframes floatUp {
-  0%   { opacity: 1; transform: translateY(0); }
-  70%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-30px); }
+#togglePanel {
+  font-size: 12px;
+  padding: 4px 8px;
 }
-
+#panel {
+  background: #181818;
+  padding: 8px;
+  font-size: 12px;
+  display: none;
+}
+#panel input, #panel button {
+  font-size: 12px;
+  padding: 4px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+#shareUrl {
+  word-break: break-all;
+  opacity: 0.7;
+}
+#remote, #localView {
+  flex: 1;
+  padding: 14px;
+  font-size: 20px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+#remote {
+  border-bottom: 1px solid #333;
+}
+.char {
+  opacity: 1;
+  transition: opacity 0.4s;
+}
+.char.dead {
+  opacity: 0;
+}
 #composing {
   opacity: 0.6;
 }
-
 footer {
-  background: linear-gradient(
-    to top,
-    rgba(0,0,0,0.6),
-    rgba(0,0,0,0)
-  );
-  padding: 12px;
+  padding: 6px;
+  background: #181818;
 }
-
-.card {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 10px;
-  margin-bottom: 8px;
-}
-
-input, button {
-  width: 100%;
-  font-size: 16px;
-  border-radius: 14px;
-  border: none;
-  padding: 10px;
-}
-
-input {
-  background: rgba(0,0,0,0.4);
-  color: #fff;
-}
-
-button {
-  background: linear-gradient(135deg, #4facfe, #00f2fe);
-  color: #000;
-  font-weight: 600;
-}
-
 #textInput {
-  font-size: 18px;
+  width: 100%;
+  font-size: 20px;
+  padding: 8px;
 }
-
-#shareUrl {
-  font-size: 11px;
-  opacity: 0.7;
-  word-break: break-all;
-}
-
-#toast {
-  position: fixed;
-  bottom: 90px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.7);
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-#toast.show { opacity: 1; }
 </style>
 </head>
-
 <body>
 
 <header>
-  Your ID: <span id="myId">...</span>
+  <div>Your ID: <span id="myId">...</span></div>
+  <button id="togglePanel" onclick="togglePanel()">⚙ 接続</button>
 </header>
 
-<div id="stage">
-  <div id="remote" class="layer"></div>
-  <div id="localView" class="layer"></div>
+<div id="panel">
+  <input id="nameInput" placeholder="あなたの名前">
+  <input id="peerInput" placeholder="相手のPeer ID">
+  <button onclick="connect()">接続</button>
+  <button onclick="copyShareUrl()">共有URLコピー</button>
+  <div id="shareUrl"></div>
 </div>
 
+<div id="remote"></div>
+<div id="localView"></div>
+
 <footer>
-  <div class="card">
-    <input id="nameInput" placeholder="あなたの名前">
-    <input id="peerInput" placeholder="相手のPeer ID">
-    <button onclick="connect()">接続</button>
-  </div>
-
-  <div class="card">
-    <button onclick="copyShareUrl()">共有URLをコピー</button>
-    <div id="shareUrl"></div>
-  </div>
-
   <input id="textInput" placeholder="話すように入力…" autocomplete="off">
 </footer>
-
-<div id="toast">コピーしました</div>
 
 <script>
 const peer = new Peer();
@@ -174,11 +105,15 @@ const remote = document.getElementById("remote");
 const localView = document.getElementById("localView");
 const textInput = document.getElementById("textInput");
 const shareUrlDiv = document.getElementById("shareUrl");
-const toast = document.getElementById("toast");
+const panel = document.getElementById("panel");
 
 let isComposing = false;
 let composingSpan = null;
 let shareUrl = "";
+
+function togglePanel() {
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
 
 peer.on("open", id => {
   document.getElementById("myId").textContent = id;
@@ -205,7 +140,9 @@ function connect() {
 }
 
 function setupConn() {
-  conn.on("data", d => spawnChar(remote, d.char));
+  conn.on("data", data => {
+    spawnChar(remote, data.char);
+  });
 }
 
 function spawnChar(target, char) {
@@ -213,39 +150,51 @@ function spawnChar(target, char) {
   span.className = "char";
   span.textContent = char;
   target.appendChild(span);
-  setTimeout(() => span.remove(), TTL);
+
+  setTimeout(() => span.classList.add("dead"), TTL);
+  setTimeout(() => span.remove(), TTL + 500);
 }
 
 function copyShareUrl() {
-  navigator.clipboard.writeText(shareUrl);
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 1200);
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    alert("共有URLをコピーしました");
+  });
 }
 
-/* IME */
+/* ===== IME対応 ===== */
+
 textInput.addEventListener("compositionstart", () => {
   isComposing = true;
   composingSpan = document.createElement("span");
   composingSpan.id = "composing";
   localView.appendChild(composingSpan);
 });
+
 textInput.addEventListener("compositionupdate", e => {
   if (composingSpan) composingSpan.textContent = e.data;
 });
+
 textInput.addEventListener("compositionend", e => {
   isComposing = false;
   if (composingSpan) composingSpan.remove();
-  for (const c of e.data) {
-    spawnChar(localView, c);
-    if (conn?.open) conn.send({ char: c });
+  composingSpan = null;
+
+  const text = e.data;
+  for (const char of text) {
+    spawnChar(localView, char);
+    if (conn && conn.open) conn.send({ char });
   }
   textInput.value = "";
 });
+
 textInput.addEventListener("input", e => {
   if (isComposing) return;
-  for (const c of e.target.value) {
-    spawnChar(localView, c);
-    if (conn?.open) conn.send({ char: c });
+  const text = e.target.value;
+  if (!text) return;
+
+  for (const char of text) {
+    spawnChar(localView, char);
+    if (conn && conn.open) conn.send({ char });
   }
   e.target.value = "";
 });
